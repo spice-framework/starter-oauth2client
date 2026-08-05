@@ -27,3 +27,7 @@ policy, retry policy, observability, and shutdown context. This starter owns
 client-credentials acquisition, token caching, protocol validation, safe errors,
 and HTTPS enforcement. It intentionally performs no automatic discovery or
 background network activity.
+
+Release artifacts are produced only from an exact tagged commit under the
+contract in [`releasing.md`](releasing.md). A compromised or missing signing
+secret fails a production release; it never falls back to unsigned output.

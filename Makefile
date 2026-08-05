@@ -1,4 +1,4 @@
-.PHONY: check compatibility fmt lint security verify
+.PHONY: check compatibility fmt lint security verify verify-release
 
 check:
 	go run ./internal/qualitygate -mode=check
@@ -17,3 +17,6 @@ security:
 
 verify:
 	go run ./internal/qualitygate -mode=verify
+
+verify-release:
+	go run ./internal/qualitygate -mode=verify-release
