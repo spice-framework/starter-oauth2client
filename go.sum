@@ -1,0 +1,4 @@
+github.com/spice-framework/spice v0.0.0-20260805175412-383c17744300 h1:cqHN/VvCqhwGqj8kR+2XAev9PVSDOnW7AtkkI88XbwM=
+github.com/spice-framework/spice v0.0.0-20260805175412-383c17744300/go.mod h1:823ZmaopXc+f3ASWbIJL26fEXl1HP7lpyO0x5tE74tE=
+golang.org/x/oauth2 v0.36.0 h1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=
+golang.org/x/oauth2 v0.36.0/go.mod h1:YDBUJMTkDnJS+A4BP4eZBjCqtokkg1hODuPjwiGPO7Q=

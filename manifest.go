@@ -1,23 +1,23 @@
 package oauth2client
 
-import spicestarter "github.com/spice-framework/spice/starter"
+import spicestarter "github.com/spice-framework/spice/annotation/sdk/starter"
 
 // Manifest returns OAuth2 client-credentials compatibility and review metadata.
 func Manifest() spicestarter.Manifest {
 	return spicestarter.Must(spicestarter.Spec{
 		Schema:    spicestarter.Schema,
-		ID:        "github.com/spice-framework/spice/starter/oauth2client",
+		ID:        "github.com/spice-framework/starter-oauth2client",
 		Version:   "0.1.0-dev",
-		Module:    "github.com/spice-framework/spice",
+		Module:    "github.com/spice-framework/starter-oauth2client",
 		SpiceAPI:  spicestarter.APIVersion,
 		MinimumGo: "1.26",
 		License:   "Apache-2.0",
-		Review:    "docs/dependency-reviews/oauth2.md",
+		Review:    "docs/dependency-review.md",
 		Activation: spicestarter.Activation{
 			Mode: spicestarter.ActivationExplicitConstructor,
 			EntryPoints: []spicestarter.EntryPoint{
 				{
-					Package: "github.com/spice-framework/spice/starter/oauth2client",
+					Package: "github.com/spice-framework/starter-oauth2client",
 					Symbol:  "NewClient",
 				},
 			},

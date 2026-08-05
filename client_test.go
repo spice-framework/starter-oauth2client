@@ -9,11 +9,12 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/spice-framework/spice/starter/oauth2client"
+	oauth2client "github.com/spice-framework/starter-oauth2client"
 )
 
 func TestClientCredentialsAuthorizesAndCachesResourceRequests(t *testing.T) {
@@ -246,6 +247,212 @@ func TestTokenEndpointRedirectIsNotFollowed(t *testing.T) {
 	}
 }
 
+func TestTokenTimeoutIsClassifiedWithoutLeakingSecrets(t *testing.T) {
+	t.Parallel()
+
+	tokenServer := httptest.NewTLSServer(http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		_ *http.Request,
+	) {
+		time.Sleep(100 * time.Millisecond)
+		writer.Header().Set("Content-Type", "application/json")
+		writeString(t, writer, `{"access_token":"provider-secret","token_type":"Bearer"}`)
+	}))
+	t.Cleanup(tokenServer.Close)
+	resourceServer := newAuthorizedServer(t)
+	tokenClient := tokenServer.Client()
+	tokenClient.Timeout = 10 * time.Millisecond
+	resourceClient := resourceServer.Client()
+	resourceClient.Timeout = time.Second
+	client, err := oauth2client.NewClient(
+		context.Background(),
+		validOptions(tokenServer.URL),
+		tokenClient,
+		resourceClient,
+	)
+	if err != nil {
+		t.Fatalf("construct client: %v", err)
+	}
+
+	response, err := client.Get(resourceServer.URL)
+	closeResponse(t, response)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("request error = %v, want deadline classification", err)
+	}
+	for _, secret := range []string{"provider-secret", "credential", tokenServer.URL} {
+		if strings.Contains(err.Error(), secret) {
+			t.Fatalf("timeout exposed %q: %v", secret, err)
+		}
+	}
+}
+
+func TestResourceRequiresHTTPSBeforeTokenAcquisition(t *testing.T) {
+	t.Parallel()
+
+	var tokenRequests atomic.Int64
+	tokenServer := httptest.NewTLSServer(http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		_ *http.Request,
+	) {
+		tokenRequests.Add(1)
+		writer.Header().Set("Content-Type", "application/json")
+		writeString(t, writer, `{"access_token":"token","token_type":"Bearer"}`)
+	}))
+	t.Cleanup(tokenServer.Close)
+	client := newClient(
+		t,
+		validOptions(tokenServer.URL),
+		tokenServer.Client(),
+		&http.Client{Timeout: time.Second},
+	)
+
+	response, err := client.Get("http://resource.example.test/orders")
+	closeResponse(t, response)
+	if !errors.Is(err, oauth2client.ErrInsecureResourceURL) {
+		t.Fatalf("request error = %v, want ErrInsecureResourceURL", err)
+	}
+	if tokenRequests.Load() != 0 {
+		t.Fatalf("insecure resource acquired %d tokens", tokenRequests.Load())
+	}
+}
+
+func TestResourceRedirectIsRejectedByDefault(t *testing.T) {
+	t.Parallel()
+
+	var destinationRequests atomic.Int64
+	destination := httptest.NewTLSServer(http.HandlerFunc(func(
+		http.ResponseWriter,
+		*http.Request,
+	) {
+		destinationRequests.Add(1)
+	}))
+	t.Cleanup(destination.Close)
+	redirect := httptest.NewTLSServer(http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		request *http.Request,
+	) {
+		http.Redirect(writer, request, destination.URL, http.StatusTemporaryRedirect)
+	}))
+	t.Cleanup(redirect.Close)
+	tokenServer := tokenFixture(t)
+	client := newClient(t, validOptions(tokenServer.URL), tokenServer.Client(), redirect.Client())
+
+	response, err := client.Get(redirect.URL)
+	if err != nil {
+		t.Fatalf("request redirecting resource: %v", err)
+	}
+	defer closeResponse(t, response)
+	if response.StatusCode != http.StatusTemporaryRedirect {
+		t.Fatalf("status = %d, want %d", response.StatusCode, http.StatusTemporaryRedirect)
+	}
+	if destinationRequests.Load() != 0 {
+		t.Fatal("resource client followed a redirect by default")
+	}
+}
+
+func TestResourceRedirectPolicyRemainsCallerOwned(t *testing.T) {
+	t.Parallel()
+
+	redirect := httptest.NewTLSServer(http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		request *http.Request,
+	) {
+		http.Redirect(writer, request, request.URL.String(), http.StatusTemporaryRedirect)
+	}))
+	t.Cleanup(redirect.Close)
+	resourceClient := redirect.Client()
+	resourceClient.Timeout = time.Second
+	var policyCalls atomic.Int64
+	resourceClient.CheckRedirect = func(*http.Request, []*http.Request) error {
+		policyCalls.Add(1)
+		return http.ErrUseLastResponse
+	}
+	tokenServer := tokenFixture(t)
+	client := newClient(t, validOptions(tokenServer.URL), tokenServer.Client(), resourceClient)
+
+	response, err := client.Get(redirect.URL)
+	if err != nil {
+		t.Fatalf("request redirecting resource: %v", err)
+	}
+	defer closeResponse(t, response)
+	if policyCalls.Load() != 1 {
+		t.Fatalf("caller redirect policy calls = %d, want 1", policyCalls.Load())
+	}
+}
+
+func TestConcurrentRequestsShareOneToken(t *testing.T) {
+	t.Parallel()
+
+	var tokenRequests atomic.Int64
+	tokenServer := httptest.NewTLSServer(http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		_ *http.Request,
+	) {
+		tokenRequests.Add(1)
+		time.Sleep(20 * time.Millisecond)
+		writer.Header().Set("Content-Type", "application/json")
+		writeString(t, writer, `{"access_token":"shared-token","token_type":"Bearer","expires_in":3600}`)
+	}))
+	t.Cleanup(tokenServer.Close)
+	resourceServer := newAuthorizedServer(t)
+	client := newClient(t, validOptions(tokenServer.URL), tokenServer.Client(), resourceServer.Client())
+
+	const requests = 16
+	var wait sync.WaitGroup
+	errorsSeen := make(chan error, requests)
+	for range requests {
+		wait.Go(func() {
+			response, err := client.Get(resourceServer.URL)
+			if err == nil && response.StatusCode != http.StatusNoContent {
+				err = fmt.Errorf("resource status %d", response.StatusCode)
+			}
+			if response != nil {
+				err = errors.Join(err, response.Body.Close())
+			}
+			errorsSeen <- err
+		})
+	}
+	wait.Wait()
+	close(errorsSeen)
+	for err := range errorsSeen {
+		if err != nil {
+			t.Fatalf("concurrent resource request: %v", err)
+		}
+	}
+	if tokenRequests.Load() != 1 {
+		t.Fatalf("token requests = %d, want 1", tokenRequests.Load())
+	}
+}
+
+func TestResourceRequestCancellationIsPreserved(t *testing.T) {
+	t.Parallel()
+
+	tokenServer := tokenFixture(t)
+	resourceServer := httptest.NewTLSServer(http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		request *http.Request,
+	) {
+		select {
+		case <-request.Context().Done():
+		case <-time.After(time.Second):
+			http.Error(writer, "request was not canceled", http.StatusInternalServerError)
+		}
+	}))
+	t.Cleanup(resourceServer.Close)
+	client := newClient(t, validOptions(tokenServer.URL), tokenServer.Client(), resourceServer.Client())
+	ctx, cancel := context.WithCancel(t.Context())
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, resourceServer.URL, nil)
+	if err != nil {
+		t.Fatalf("construct request: %v", err)
+	}
+	cancel()
+	response, err := client.Do(request)
+	closeResponse(t, response)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("request error = %v, want context cancellation", err)
+	}
+}
+
 func TestLifetimeCancellationIsClassified(t *testing.T) {
 	t.Parallel()
 
@@ -401,6 +608,23 @@ func newAuthorizedServer(t *testing.T) *httptest.Server {
 			return
 		}
 		writer.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+func tokenFixture(t *testing.T) *httptest.Server {
+	t.Helper()
+	server := httptest.NewTLSServer(http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		_ *http.Request,
+	) {
+		writer.Header().Set("Content-Type", "application/json")
+		writeString(
+			t,
+			writer,
+			`{"access_token":"fixture-token","token_type":"Bearer","expires_in":3600}`,
+		)
 	}))
 	t.Cleanup(server.Close)
 	return server

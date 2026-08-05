@@ -24,7 +24,10 @@ const (
 	maxEndpointValueBytes              = 8 << 10
 )
 
-var errTokenResponseTooLarge = errors.New("OAuth2 token response is too large")
+var errTokenResponseTooLarge = errors.New("oauth2 token response is too large")
+
+// ErrInsecureResourceURL reports a resource request that does not use HTTPS.
+var ErrInsecureResourceURL = errors.New("oauth2 resource request requires HTTPS")
 
 // AuthStyle selects how the client authenticates to the token endpoint.
 type AuthStyle uint8
@@ -60,7 +63,7 @@ type TokenError struct {
 
 // Error returns a stable message safe for logs and HTTP error chains.
 func (*TokenError) Error() string {
-	return "OAuth2 token acquisition failed"
+	return "oauth2 token acquisition failed"
 }
 
 // Is preserves cancellation classification without exposing the upstream
@@ -113,8 +116,26 @@ func NewClient(
 	if base == nil {
 		base = http.DefaultTransport
 	}
-	client.Transport = &oauth2.Transport{Source: source, Base: base}
+	client.Transport = secureResourceTransport{
+		base: &oauth2.Transport{Source: source, Base: base},
+	}
+	if client.CheckRedirect == nil {
+		client.CheckRedirect = func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+	}
 	return &client, nil
+}
+
+type secureResourceTransport struct {
+	base http.RoundTripper
+}
+
+func (transport secureResourceTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	if request == nil || request.URL == nil || request.URL.Scheme != "https" {
+		return nil, ErrInsecureResourceURL
+	}
+	return transport.base.RoundTrip(request)
 }
 
 func normalize(options Options) (Options, error) {
