@@ -32,11 +32,11 @@ Primary references:
 - Decision: approved only as repository-authorized release tooling.
 - Renderer: `github.com/spice-framework/development/cmd/spice-dev` from
   `github.com/spice-framework/development`
-  `v0.0.0-20260806121906-963bb6676069`.
+  `v0.0.0-20260806132124-4c308d1b9fda`.
 - Independent verifier:
   `github.com/spice-framework/toolchain/cmd/spice-library-release-verify` from
   `github.com/spice-framework/toolchain`
-  `v0.0.0-20260806054457-a83d9b58034c`.
+  `v0.0.0-20260806133530-71211498297c`.
 - Tool registration: both commands use standard Go `tool` directives and all
   invocations use their full package paths.
 - License: Apache-2.0, with its notice retained in `vendor`.
