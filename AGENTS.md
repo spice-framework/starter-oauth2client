@@ -15,9 +15,9 @@ This repository owns the Spice OAuth 2.0 client-credentials starter.
 - Run focused checks while developing and `make verify` on the exact tree before commit.
 - Never weaken a gate to land a change.
 
-Release-parity work must preserve the exact `spice-dev` tool version authorized
-by the root `go.mod`, invoke its full package path, and run both central and
-retained rehearsals with workspace and network resolution disabled in vendor
+Release-parity work must preserve the exact central release-tool versions
+authorized by the root `go.mod`, invoke full package paths, and run both central
+and retained rehearsals with workspace and network resolution disabled in vendor
 mode. The retained repository builder and signed production workflow remain
 authoritative until a separately reviewed signing migration; unsigned parity
 must never manufacture signatures or key material.

@@ -23,7 +23,10 @@ import (
 const (
 	developmentModule        = "github.com/spice-framework/development"
 	developmentTool          = developmentModule + "/cmd/spice-dev"
-	developmentVersion       = "v0.0.0-20260806034648-1856466df09d"
+	developmentVersion       = "v0.0.0-20260806052122-9025218a91c0"
+	releaseVerifierModule    = "github.com/spice-framework/toolchain"
+	releaseVerifierTool      = releaseVerifierModule + "/cmd/spice-library-release-verify"
+	releaseVerifierVersion   = "v0.0.0-20260806054457-a83d9b58034c"
 	rehearsalVersion         = "v0.0.0-rehearsal"
 	maximumParityArchiveSize = 256 << 20
 	maximumParityEntrySize   = 128 << 20
@@ -51,37 +54,52 @@ func validateReleaseToolAuthorization(content []byte) error {
 	if err := json.Unmarshal(content, &metadata); err != nil {
 		return fmt.Errorf("decode release tool authorization: %w", err)
 	}
-	toolCount := 0
-	for _, tool := range metadata.Tool {
-		if tool.Path == developmentTool {
-			toolCount++
-		}
+	authorizations := [...]struct {
+		module  string
+		tool    string
+		version string
+	}{
+		{developmentModule, developmentTool, developmentVersion},
+		{releaseVerifierModule, releaseVerifierTool, releaseVerifierVersion},
 	}
-	if toolCount != 1 {
-		return fmt.Errorf(
-			"go.mod must authorize exactly one %s tool declaration; found %d",
-			developmentTool,
-			toolCount,
-		)
-	}
-	for _, requirement := range metadata.Require {
-		if requirement.Path != developmentModule {
-			continue
+	for _, authorization := range authorizations {
+		toolCount := 0
+		for _, tool := range metadata.Tool {
+			if tool.Path == authorization.tool {
+				toolCount++
+			}
 		}
-		if requirement.Version != developmentVersion {
+		if toolCount != 1 {
 			return fmt.Errorf(
-				"go.mod selects release tool %s; require exactly %s",
-				requirement.Version,
-				developmentVersion,
+				"go.mod must authorize exactly one %s tool declaration; found %d",
+				authorization.tool,
+				toolCount,
 			)
 		}
-		return nil
+		requirementFound := false
+		for _, requirement := range metadata.Require {
+			if requirement.Path != authorization.module {
+				continue
+			}
+			requirementFound = true
+			if requirement.Version != authorization.version {
+				return fmt.Errorf(
+					"go.mod selects release tool %s at %s; require exactly %s",
+					authorization.tool,
+					requirement.Version,
+					authorization.version,
+				)
+			}
+		}
+		if !requirementFound {
+			return fmt.Errorf(
+				"go.mod must require %s at exactly %s",
+				authorization.module,
+				authorization.version,
+			)
+		}
 	}
-	return fmt.Errorf(
-		"go.mod must require %s at exactly %s",
-		developmentModule,
-		developmentVersion,
-	)
+	return nil
 }
 
 func releaseParity(ctx context.Context, root string) error {

@@ -17,35 +17,72 @@ import (
 
 func TestValidateReleaseToolAuthorization(t *testing.T) {
 	t.Parallel()
-	valid := fmt.Sprintf(
-		`{"Require":[{"Path":%q,"Version":%q}],"Tool":[{"Path":%q}]}`,
-		developmentModule,
-		developmentVersion,
-		developmentTool,
-	)
+	metadata := func(
+		developmentRequirement string,
+		includeDevelopmentTool bool,
+		verifierRequirement string,
+		includeVerifierTool bool,
+	) string {
+		requirements := make([]map[string]string, 0, 2)
+		if developmentRequirement != "" {
+			requirements = append(requirements, map[string]string{
+				"Path": developmentModule, "Version": developmentRequirement,
+			})
+		}
+		if verifierRequirement != "" {
+			requirements = append(requirements, map[string]string{
+				"Path": releaseVerifierModule, "Version": verifierRequirement,
+			})
+		}
+		tools := make([]map[string]string, 0, 2)
+		if includeDevelopmentTool {
+			tools = append(tools, map[string]string{"Path": developmentTool})
+		}
+		if includeVerifierTool {
+			tools = append(tools, map[string]string{"Path": releaseVerifierTool})
+		}
+		content, err := json.Marshal(map[string]any{"Require": requirements, "Tool": tools})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(content)
+	}
+	valid := metadata(developmentVersion, true, releaseVerifierVersion, true)
 	tests := []struct {
 		name    string
 		content string
 		wantErr string
 	}{
 		{name: "exact authorization", content: valid},
-		{name: "missing tool", content: `{"Require":[]}`, wantErr: "exactly one"},
 		{
-			name: "wrong version",
-			content: fmt.Sprintf(
-				`{"Require":[{"Path":%q,"Version":"v0.0.0-wrong"}],"Tool":[{"Path":%q}]}`,
-				developmentModule,
-				developmentTool,
-			),
+			name:    "missing development tool",
+			content: metadata(developmentVersion, false, releaseVerifierVersion, true),
+			wantErr: "exactly one " + developmentTool,
+		},
+		{
+			name:    "wrong development version",
+			content: metadata("v0.0.0-wrong", true, releaseVerifierVersion, true),
 			wantErr: "require exactly " + developmentVersion,
 		},
 		{
-			name: "missing requirement",
-			content: fmt.Sprintf(
-				`{"Require":[],"Tool":[{"Path":%q}]}`,
-				developmentTool,
-			),
+			name:    "missing development requirement",
+			content: metadata("", true, releaseVerifierVersion, true),
 			wantErr: "must require " + developmentModule,
+		},
+		{
+			name:    "missing verifier tool",
+			content: metadata(developmentVersion, true, releaseVerifierVersion, false),
+			wantErr: "exactly one " + releaseVerifierTool,
+		},
+		{
+			name:    "wrong verifier version",
+			content: metadata(developmentVersion, true, "v0.0.0-wrong", true),
+			wantErr: "require exactly " + releaseVerifierVersion,
+		},
+		{
+			name:    "missing verifier requirement",
+			content: metadata(developmentVersion, true, "", true),
+			wantErr: "must require " + releaseVerifierModule,
 		},
 		{name: "malformed metadata", content: `{`, wantErr: "decode release tool authorization"},
 	}

@@ -27,26 +27,32 @@ Primary references:
 - <https://pkg.go.dev/golang.org/x/oauth2/clientcredentials>
 - <https://www.rfc-editor.org/rfc/rfc6749#section-4.4>
 
-## Build-only dependency: Spice development release renderer
+## Build-only dependencies: central release tools
 
-- Decision: approved only as the repository-authorized release-parity tool.
-- Version: `github.com/spice-framework/development`
-  `v0.0.0-20260806034648-1856466df09d`.
-- Tool: `github.com/spice-framework/development/cmd/spice-dev` through the
-  standard Go `tool` directive; invocations always use the full package path.
+- Decision: approved only as repository-authorized release tooling.
+- Renderer: `github.com/spice-framework/development/cmd/spice-dev` from
+  `github.com/spice-framework/development`
+  `v0.0.0-20260806052122-9025218a91c0`.
+- Independent verifier:
+  `github.com/spice-framework/toolchain/cmd/spice-library-release-verify` from
+  `github.com/spice-framework/toolchain`
+  `v0.0.0-20260806054457-a83d9b58034c`.
+- Tool registration: both commands use standard Go `tool` directives and all
+  invocations use their full package paths.
 - License: Apache-2.0, with its notice retained in `vendor`.
-- Runtime scope: none. Product packages do not import the development module,
-  and released applications acquire no runtime dependency on it.
-- Dependency graph: the tool participates in normal Go minimal-version
+- Runtime scope: none. Product packages import neither tool module, and
+  released applications acquire no runtime dependency on them.
+- Dependency graph: both tools participate in normal Go minimal-version
   selection. That build-time coupling is accepted and visible in `go.mod`,
   `go.sum`, and `vendor/modules.txt`; no parallel tool registry is introduced.
-- Integrity and network behavior: the exact pseudo-version is pinned and
+- Integrity and network behavior: both exact pseudo-versions are pinned and
   checksummed. Release parity runs with `GOWORK=off`, `GOPROXY=off`,
   `GOTOOLCHAIN=local`, and `GOFLAGS=-mod=vendor`, so it cannot select an ambient
   checkout, upgrade itself, or download dependencies.
-- Security: the trusted native tool reads the exact committed Git graph and
-  writes only to caller-supplied temporary output directories. The rehearsal
-  emits no signatures or signing material.
+- Security: the trusted native renderer reads the exact committed Git graph
+  and writes only to caller-supplied temporary output directories. The
+  verifier independently checks release artifacts without signing them. The
+  rehearsal emits no signatures or signing material.
 - Maintenance: the retained local builder and production signing workflow stay
   in place. A dual-builder gate detects central renderer regressions before any
   future authority migration.

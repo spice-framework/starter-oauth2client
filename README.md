@@ -87,11 +87,12 @@ allowlisted linting, NilAway, gosec, govulncheck, shuffled/race tests, coverage,
 minimum/current Spice compatibility, and offline vendor execution. Local TLS
 fixtures prove token and resource behavior without external services.
 
-Release parity runs the exact `spice-dev` tool authorized by `go.mod` and the
-retained repository builder twice each, entirely from `vendor` with network and
-workspace resolution disabled. It requires byte-identical, structurally valid
-source archives, equivalent SBOM package and dependency facts, canonical
-self-consistent checksums, and no rehearsal signatures on Windows and Linux.
+Release parity validates the exact `spice-dev` renderer and
+`spice-library-release-verify` verifier authorized by `go.mod`, then runs the
+renderer and retained repository builder twice each, entirely from `vendor`
+with network and workspace resolution disabled. It requires byte-identical,
+structurally valid source archives, equivalent SBOM package and dependency
+facts, canonical self-consistent checksums, and no rehearsal signatures on Windows and Linux.
 
 See [`docs/dependency-review.md`](docs/dependency-review.md) for the dependency
 decision and [`docs/support.md`](docs/support.md) for the support policy.
