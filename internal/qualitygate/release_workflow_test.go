@@ -17,7 +17,7 @@ func TestValidateReleaseWorkflow(t *testing.T) {
 			name: "wrong reusable workflow commit",
 			content: strings.Replace(
 				valid,
-				"f8fe9ec3cedd17f8bec4bf3d40f6640902774124",
+				"8b9fc5012de2f2e457ff13d3f1168a451da167fe",
 				strings.Repeat("0", 40),
 				1,
 			),
@@ -25,6 +25,33 @@ func TestValidateReleaseWorkflow(t *testing.T) {
 		{
 			name:    "wrong module",
 			content: strings.Replace(valid, modulePath, "github.com/spice-framework/wrong", 1),
+		},
+		{
+			name: "missing signing secret",
+			content: strings.Replace(
+				valid,
+				"    secrets:\n      SPICE_LIBRARY_RELEASE_SIGNING_KEY: ${{ secrets.SPICE_LIBRARY_RELEASE_SIGNING_KEY }}\n",
+				"",
+				1,
+			),
+		},
+		{
+			name: "inherited secrets",
+			content: strings.Replace(
+				valid,
+				"    secrets:\n      SPICE_LIBRARY_RELEASE_SIGNING_KEY: ${{ secrets.SPICE_LIBRARY_RELEASE_SIGNING_KEY }}\n",
+				"    secrets: inherit\n",
+				1,
+			),
+		},
+		{
+			name: "additional secret",
+			content: strings.Replace(
+				valid,
+				"      SPICE_LIBRARY_RELEASE_SIGNING_KEY: ${{ secrets.SPICE_LIBRARY_RELEASE_SIGNING_KEY }}\n",
+				"      SPICE_LIBRARY_RELEASE_SIGNING_KEY: ${{ secrets.SPICE_LIBRARY_RELEASE_SIGNING_KEY }}\n      UNRELATED_SECRET: ${{ secrets.UNRELATED_SECRET }}\n",
+				1,
+			),
 		},
 	}
 	for _, test := range tests {

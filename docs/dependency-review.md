@@ -53,6 +53,9 @@ Primary references:
   and writes only to caller-supplied temporary output directories. The
   verifier independently checks release artifacts without signing them. The
   rehearsal emits no signatures or signing material.
-- Maintenance: the pinned central workflow owns production signing. The retained
-  local builder stays only as a parity oracle until separate removal evidence is
+- Maintenance: the pinned central workflow owns production signing. The caller
+  maps only repository secret `SPICE_LIBRARY_RELEASE_SIGNING_KEY`; inheritance
+  and additional mappings fail repository verification. The protected signing
+  and publishing environments remain approval boundaries. The retained local
+  builder stays only as a parity oracle until separate removal evidence is
   reviewed.

@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-const reusableReleaseWorkflow = "spice-framework/.github/.github/workflows/library-release.yml@f8fe9ec3cedd17f8bec4bf3d40f6640902774124"
+const reusableReleaseWorkflow = "spice-framework/.github/.github/workflows/library-release.yml@8b9fc5012de2f2e457ff13d3f1168a451da167fe"
 
 func checkIdentityAndReleaseWorkflow(ctx context.Context, root string) error {
 	if err := checkIdentity(ctx, root); err != nil {
@@ -29,7 +29,7 @@ func validateReleaseWorkflowFile(root string) error {
 func validateReleaseWorkflow(content []byte) error {
 	normalized := strings.ReplaceAll(string(content), "\r\n", "\n")
 	if normalized != expectedReleaseWorkflow() {
-		return errors.New("release workflow must be the exact least-privilege central caller with pinned workflow and module")
+		return errors.New("release workflow must be the exact least-privilege central caller with pinned workflow, module, and only the explicit repository signing secret")
 	}
 	return nil
 }
@@ -56,5 +56,7 @@ jobs:
     uses: %s
     with:
       module: %s
+    secrets:
+      SPICE_LIBRARY_RELEASE_SIGNING_KEY: ${{ secrets.SPICE_LIBRARY_RELEASE_SIGNING_KEY }}
 `, reusableReleaseWorkflow, modulePath)
 }

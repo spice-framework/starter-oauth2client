@@ -40,8 +40,9 @@ secret fails a production release; it never falls back to unsigned output.
 The pinned central signer and independent verifier power the protected reusable
 production workflow. The reviewed repository-specific trust anchor is
 `security/release/ed25519-public.pem` (SHA-256 fingerprint
-`5dbb42c6db911bc6374b847ea1de6617499623a98aa7e9df654f77dba14b3037`).
-Its private key exists only in the protected `release-signing` environment;
-`release-publish` contains no signing secret. Windows and Linux CI still compare
+`c1ff629a8f503bd90d21fd0e6aec5e072f21ceedda9203d8ad01d755d9f66a54`).
+Its private key exists only as repository Actions secret
+`SPICE_LIBRARY_RELEASE_SIGNING_KEY`, and the caller explicitly maps only that
+secret to the protected reusable workflow. Windows and Linux CI still compare
 unsigned central and retained outputs under vendor-only offline resolution; the
 retained command is only a parity oracle until the first signed cutover passes.
