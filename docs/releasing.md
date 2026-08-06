@@ -35,7 +35,8 @@ immutable commit. Before any release tag is created, a release owner must:
 
 1. generate a user-owned Ed25519 private key dedicated to this repository;
 2. review and commit its public key as
-   `security/release/ed25519-public.pem`;
+   `security/release/ed25519-public.pem` (SHA-256 fingerprint
+   `5dbb42c6db911bc6374b847ea1de6617499623a98aa7e9df654f77dba14b3037`);
 3. store the private key as `SPICE_LIBRARY_RELEASE_SIGNING_KEY` only in the
    protected `release-signing` environment; and
 4. configure protected `release-signing` and `release-publish` environments
@@ -102,5 +103,6 @@ openssl pkeyutl -verify -pubin -inkey checksums.txt.pem \
 
 Consumers must authenticate `checksums.txt.sig` against the reviewed
 `security/release/ed25519-public.pem` from the exact tagged source, not against a
-public key supplied only beside release assets. Until that trust anchor and the
-protected environments are configured, this repository must not publish a tag.
+public key supplied only beside release assets. Publishing remains fail-closed
+if the anchor, signing secret, protected environments, or immutable tag rules
+are absent.
