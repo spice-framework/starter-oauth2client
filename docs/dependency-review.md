@@ -46,16 +46,13 @@ Primary references:
   selection. That build-time coupling is accepted and visible in `go.mod`,
   `go.sum`, and `vendor/modules.txt`; no parallel tool registry is introduced.
 - Integrity and network behavior: both exact pseudo-versions are pinned and
-  checksummed. Release parity runs with `GOWORK=off`, `GOPROXY=off`,
+  checksummed. Release rehearsal runs with `GOWORK=off`, `GOPROXY=off`,
   `GOTOOLCHAIN=local`, and `GOFLAGS=-mod=vendor`, so it cannot select an ambient
   checkout, upgrade itself, or download dependencies.
 - Security: the trusted native renderer reads the exact committed Git graph
   and writes only to caller-supplied temporary output directories. The
   verifier independently checks release artifacts without signing them. The
   rehearsal emits no signatures or signing material.
-- Maintenance: the pinned central workflow owns production signing. The caller
-  maps only repository secret `SPICE_LIBRARY_RELEASE_SIGNING_KEY`; inheritance
-  and additional mappings fail repository verification. The protected signing
-  and publishing environments remain approval boundaries. The retained local
-  builder stays only as a parity oracle until separate removal evidence is
-  reviewed.
+- Maintenance: the protected central workflow is the sole production builder.
+  The former repository-local builder was removed after the protected,
+  independently verified preview cutover proved the central path.

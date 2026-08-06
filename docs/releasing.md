@@ -1,109 +1,107 @@
-# Release contract
+# Releasing starter-oauth2client
 
-starter-oauth2client releases are ordinary Go module tags plus a small,
-independently verifiable artifact set. The repository owns the release contract
-while the organization-owned reusable workflow performs the common build,
-signing, independent verification, and publication phases. No mutable workspace
-snapshot or network-resolved package list participates in artifact construction.
+starter-oauth2client releases are ordinary Go module tags plus a small, independently
+verifiable source-artifact set. The protected organization-owned reusable
+workflow is the sole production builder. Repository code does not contain a
+second signer or release implementation.
 
-For `v1.2.3`, the release builder produces:
+## Artifact contract
+
+For `v1.2.3`, the release produces exactly:
 
 | Artifact | Contract |
 |---|---|
-| `starter-oauth2client_1.2.3_source.tar.gz` | Exact tagged Git commit, under one versioned directory |
+| `starter-oauth2client_1.2.3_source.tar.gz` | Exact tagged Git commit under one versioned directory |
 | `starter-oauth2client_1.2.3_sbom.spdx.json` | SPDX 2.3 packages from the consistent committed `go.mod`, `go.sum`, and `vendor/modules.txt` graph |
-| `checksums.txt` | SHA-256 of the source archive and SBOM, sorted by filename |
-| `checksums.txt.sig` | Raw Ed25519 signature of the exact checksum bytes |
-| `checksums.txt.pem` | X.509 SubjectPublicKeyInfo PEM for signature verification |
+| `checksums.txt` | Canonical SHA-256 entries for the source archive and SBOM |
+| `checksums.txt.sig` | Raw Ed25519 signature over the exact checksum bytes |
+| `checksums.txt.pem` | X.509 SubjectPublicKeyInfo PEM matching the signer |
 
-The source archive is reconstructed from the full commit's `git ls-tree`
-identity and exact object bytes read through `git cat-file --batch`. It never
-uses checkout filters or `git archive`, so `core.autocrlf` and host line-ending
-settings cannot alter an artifact. Every tar and gzip timestamp is the source
-commit epoch; paths are relative, ownership is zeroed, executable modes and
-validated symlinks are preserved, and gzip output is deterministic. Gitlinks
-and unsupported modes fail closed. Dirty or untracked workspace files cannot
-enter the archive. The SBOM creation time uses the same epoch and contains no
-absolute checkout path. Construction fails when committed module selection,
-checksums, and vendored versions or replacements disagree; the builder does
-not rely on an earlier verifier to detect a stale dependency graph.
+Archive order, paths, modes, safe relative symlinks, tar/PAX and gzip metadata,
+and SPDX creation time derive only from sorted committed Git objects and the
+source commit epoch. Gitlinks, unsafe paths, stale module/vendor metadata,
+unsupported modes, dirty production checkouts, a mismatched tag, and partial
+output fail closed. Artifact construction performs no dependency resolution or
+network access and emits no absolute workspace path or current timestamp.
 
-## Production ceremony
+Production uses
+`spice-framework/.github/.github/workflows/library-release.yml@9ae80e32f64b29697acd9ebe629468850b4ae9f2`.
+Its uncredentialed candidate phase runs the repository verification contract.
+The signing phase renders with an immutable trusted tool and one explicitly
+mapped repository secret. A separately pinned verifier authenticates all
+artifacts before the independently protected publish phase receives them.
+Neither phase inherits ambient secrets.
 
-Production releases call the organization-owned reusable workflow at an
-immutable commit. Before any release tag is created, a release owner must:
+## Deterministic unsigned rehearsal
 
-1. generate a user-owned Ed25519 private key dedicated to this repository;
-2. review and commit its public key as
-   `security/release/ed25519-public.pem` (SHA-256 fingerprint
-   `c1ff629a8f503bd90d21fd0e6aec5e072f21ceedda9203d8ad01d755d9f66a54`);
-3. store the private key only as repository Actions secret
-   `SPICE_LIBRARY_RELEASE_SIGNING_KEY`; and
-4. configure protected `release-signing` and `release-publish` environments
-   with the required human reviewers.
-
-Do not create or push a release tag until all four controls exist. The caller
-explicitly maps only the repository signing secret; secret inheritance and
-additional mappings are forbidden. The reusable workflow validates the exact
-tag and public trust anchor, signs with the centrally pinned tool, independently
-verifies with the separately pinned verifier, and publishes only through the
-protected environments. A missing key, anchor, environment, review, or
-verification result fails closed.
-
-## Unsigned dual-builder rehearsal
-
-The library module authorizes an exact central renderer through its `go.mod`
-tool directive. `make release-parity` runs that fully qualified tool and the
-retained repository builder twice each with `GOWORK=off`, `GOPROXY=off`,
-`GOTOOLCHAIN=local`, and `GOFLAGS=-mod=vendor`. It first asks the central tool
-for a read-only plan and then renders that plan without resolving an ambient
-workspace or downloading a module.
+The root `go.mod` authorizes exact `spice-dev` renderer and
+`spice-library-release-verify` tool versions through standard Go `tool`
+directives. This command asks the central renderer for one inert plan and
+renders it twice:
 
 ```text
-make release-parity
+make release-rehearsal
 ```
 
-Both rehearsals are unsigned, deterministic across two independent outputs,
-and archive the exact committed `HEAD` tree. The source archives must be
-byte-identical. Parity additionally drains and validates both gzip/PAX streams,
-including their checksums and trailers, and requires identical entry order,
-paths, modes, types, links, sizes, timestamps, extended records, gzip metadata,
-and content hashes. Hidden decompressed bytes, raw trailing bytes, additional
-gzip members, oversized inputs, duplicate entries, and paths outside the exact
-`starter-oauth2client_VERSION/` root fail closed.
+The command runs with `GOWORK=off`, `GOPROXY=off`,
+`GOTOOLCHAIN=local`, and `GOFLAGS=-mod=vendor`. Both renders must be
+byte-identical and contain only the source archive, SBOM, and checksum file.
+Canonical checksums, central renderer provenance, a complete SPDX document, and
+the absence of signature or key material are validated. Any extra artifact,
+nondeterministic output, malformed checksum, or provenance drift fails closed.
 
-The SPDX documents must be identical except for these explicit provenance
-fields:
+`make verify-release` executes the complete repository verification contract
+and then this deterministic rehearsal. The repository-local builder was retired
+after the protected, independently verified preview cutover proved the central
+path.
 
-- document name (`Spice OAuth2 Client starter VERSION` retained and
-  `starter-oauth2client VERSION` centrally);
-- namespace identity (the central namespace includes `spdx/v1/`); and
-- organization and tool creators identifying the actual renderer.
+## Signing trust
 
-Package facts, dependency relationships, creation time, ordering, SPDX
-contract, and every other decoded field must match exactly. Each checksum file
-must canonically verify its own archive and SBOM. Extra artifacts, signatures,
-malformed checksums, archive drift, or undocumented SBOM drift fail closed.
+The reviewed repository-specific trust anchor is
+[`security/release/ed25519-public.pem`](../security/release/ed25519-public.pem).
+Its DER SubjectPublicKeyInfo SHA-256 fingerprint is:
 
-The central renderer and signer are the production implementation.
-`make verify-release` runs this dual-builder proof after the complete repository
-verification contract. The retained builder remains only an unsigned parity
-oracle. It is not removed by this cutover and never receives production signing
-authority; removal requires a separate reviewed change after the central signed
-path has durable evidence.
+```text
+c1ff629a8f503bd90d21fd0e6aec5e072f21ceedda9203d8ad01d755d9f66a54
+```
+
+The matching private Ed25519 key exists only as repository Actions secret
+`SPICE_LIBRARY_RELEASE_SIGNING_KEY`. The workflow caller maps exactly that
+secret. Protected `release-signing` and `release-publish` environments are
+separate approval boundaries, and immutable `v*` tag rules prevent moving or
+deleting published identities. A missing or mismatched anchor, key,
+environment, approval, or tag rule fails the release; there is no unsigned
+production fallback.
 
 ## Consumer verification
 
-With OpenSSL 3 and GNU-compatible checksum tooling:
+Download all five assets and authenticate the emitted key against the committed
+anchor before trusting the adjacent signature:
 
 ```text
-sha256sum -c checksums.txt
-openssl pkeyutl -verify -pubin -inkey checksums.txt.pem \
+cmp checksums.txt.pem security/release/ed25519-public.pem
+openssl pkeyutl -verify -pubin -inkey security/release/ed25519-public.pem \
   -rawin -in checksums.txt -sigfile checksums.txt.sig
+sha256sum -c checksums.txt
 ```
 
-Consumers must authenticate `checksums.txt.sig` against the reviewed
-`security/release/ed25519-public.pem` from the exact tagged source, not against a
-public key supplied only beside release assets. Publishing remains fail-closed
-if the anchor, signing secret, protected environments, or immutable tag rules
-are absent.
+PowerShell users can compare each checksum with
+`Get-FileHash -Algorithm SHA256`. Consumers must also verify that the
+annotated tag peels to the expected immutable commit and that the release is
+classified as a prerelease whenever the SemVer tag contains a prerelease
+identifier.
+
+## Release ceremony
+
+1. Confirm the committed anchor fingerprint, repository signing secret,
+   protected environments, and immutable tag rules.
+2. Run `make verify-release` once on the exact clean commit to be tagged.
+3. Fetch `origin/main` and stop if it moved unexpectedly.
+4. Create and push one annotated canonical SemVer tag.
+5. Approve signing only after candidate verification and planning succeed.
+6. Approve publishing only after signing and independent verification succeed.
+7. Download the published assets and independently verify the key, signature,
+   checksums, archive, SBOM, tag object, peeled commit, and prerelease status.
+
+GitHub is the distribution mirror; normal consumers still use the standard Go
+module graph and do not need the release compiler at runtime.
