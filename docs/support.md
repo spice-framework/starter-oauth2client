@@ -6,6 +6,9 @@
 - The Spice core minimum and current versions declared in
   `spice-compatibility.json`.
 - Standard module and vendored, offline builds.
+- Release-parity rendering through
+  `github.com/spice-framework/development/cmd/spice-dev` at
+  `v0.0.0-20260806034648-1856466df09d`.
 
 ## Compatibility policy
 
@@ -31,3 +34,6 @@ background network activity.
 Release artifacts are produced only from an exact tagged commit under the
 contract in [`releasing.md`](releasing.md). A compromised or missing signing
 secret fails a production release; it never falls back to unsigned output.
+The pinned central tool renders unsigned rehearsal candidates only. Windows
+and Linux CI compare them with the retained builder under vendor-only offline
+resolution; the retained command remains the signed production authority.

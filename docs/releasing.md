@@ -45,22 +45,45 @@ the newly created `dist` files. The workflow never prints the key. Creating or
 rotating that repository secret and pushing a release tag are separate human
 release-authority actions; no development task should manufacture either.
 
-## Unsigned rehearsal
+## Unsigned dual-builder rehearsal
 
-An explicit rehearsal exercises the exact same source archive, SBOM, and
-checksum pipeline without requiring a clean checkout or matching tag:
+The library module authorizes an exact central renderer through its `go.mod`
+tool directive. `make release-parity` runs that fully qualified tool and the
+retained repository builder twice each with `GOWORK=off`, `GOPROXY=off`,
+`GOTOOLCHAIN=local`, and `GOFLAGS=-mod=vendor`. It first asks the central tool
+for a read-only plan and then renders that plan without resolving an ambient
+workspace or downloading a module.
 
 ```text
-go run ./cmd/starter-oauth2client-release \
-  -rehearsal \
-  -version=v0.0.0-rehearsal \
-  -output=dist-rehearsal
+make release-parity
 ```
 
-Rehearsals are always unsigned and always archive `HEAD`, never working-tree
-contents. Passing a signing key together with `-rehearsal` is rejected.
-`make verify-release` runs two rehearsals and compares every byte after the
-complete repository verification contract.
+Both rehearsals are unsigned, deterministic across two independent outputs,
+and archive the exact committed `HEAD` tree. The source archives must be
+byte-identical. Parity additionally drains and validates both gzip/PAX streams,
+including their checksums and trailers, and requires identical entry order,
+paths, modes, types, links, sizes, timestamps, extended records, gzip metadata,
+and content hashes. Hidden decompressed bytes, raw trailing bytes, additional
+gzip members, oversized inputs, duplicate entries, and paths outside the exact
+`starter-oauth2client_VERSION/` root fail closed.
+
+The SPDX documents must be identical except for these explicit provenance
+fields:
+
+- document name (`Spice OAuth2 Client starter VERSION` retained and
+  `starter-oauth2client VERSION` centrally);
+- namespace identity (the central namespace includes `spdx/v1/`); and
+- organization and tool creators identifying the actual renderer.
+
+Package facts, dependency relationships, creation time, ordering, SPDX
+contract, and every other decoded field must match exactly. Each checksum file
+must canonically verify its own archive and SBOM. Extra artifacts, signatures,
+malformed checksums, archive drift, or undocumented SBOM drift fail closed.
+
+`make verify-release` runs this dual-builder proof after the complete repository
+verification contract. The production tag workflow deliberately continues to
+invoke `cmd/starter-oauth2client-release` and publish its signed artifacts until
+signing authority is migrated in a separate review.
 
 ## Consumer verification
 

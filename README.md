@@ -76,6 +76,7 @@ for providers that explicitly require credentials in the form body.
 make check
 make compatibility
 make lint
+make release-parity
 make security
 make verify
 make verify-release
@@ -85,6 +86,12 @@ The final gate checks formatting, modules and vendor reproducibility, vet,
 allowlisted linting, NilAway, gosec, govulncheck, shuffled/race tests, coverage,
 minimum/current Spice compatibility, and offline vendor execution. Local TLS
 fixtures prove token and resource behavior without external services.
+
+Release parity runs the exact `spice-dev` tool authorized by `go.mod` and the
+retained repository builder twice each, entirely from `vendor` with network and
+workspace resolution disabled. It requires byte-identical, structurally valid
+source archives, equivalent SBOM package and dependency facts, canonical
+self-consistent checksums, and no rehearsal signatures on Windows and Linux.
 
 See [`docs/dependency-review.md`](docs/dependency-review.md) for the dependency
 decision and [`docs/support.md`](docs/support.md) for the support policy.
@@ -98,6 +105,9 @@ build system. Production mode requires a clean checkout, exact tag, and
 protected signing key; an explicit unsigned rehearsal is available for local
 proof. See [`docs/releasing.md`](docs/releasing.md) for the artifact and trust
 contract.
+The retained repository builder and signed production workflow remain the
+release authority while the centrally rendered unsigned candidate is held to
+the dual-builder parity contract.
 
 ## License
 
