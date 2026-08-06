@@ -53,6 +53,6 @@ Primary references:
   and writes only to caller-supplied temporary output directories. The
   verifier independently checks release artifacts without signing them. The
   rehearsal emits no signatures or signing material.
-- Maintenance: the retained local builder and production signing workflow stay
-  in place. A dual-builder gate detects central renderer regressions before any
-  future authority migration.
+- Maintenance: the pinned central workflow owns production signing. The retained
+  local builder stays only as a parity oracle until separate removal evidence is
+  reviewed.
