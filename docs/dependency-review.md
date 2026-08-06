@@ -32,7 +32,7 @@ Primary references:
 - Decision: approved only as repository-authorized release tooling.
 - Renderer: `github.com/spice-framework/development/cmd/spice-dev` from
   `github.com/spice-framework/development`
-  `v0.0.0-20260806052122-9025218a91c0`.
+  `v0.0.0-20260806121906-963bb6676069`.
 - Independent verifier:
   `github.com/spice-framework/toolchain/cmd/spice-library-release-verify` from
   `github.com/spice-framework/toolchain`
