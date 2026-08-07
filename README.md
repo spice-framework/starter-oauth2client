@@ -1,5 +1,7 @@
 # Spice OAuth2 Client Starter
 
+Unified documentation: [spiceframework.dev/integrations/oauth2-client](https://spiceframework.dev/integrations/oauth2-client/).
+
 `starter-oauth2client` provides a bounded OAuth 2.0 client-credentials integration
 for Spice services. It returns an ordinary `*http.Client`; there is no global
 client, discovery service, reflection, or network activity during construction.
